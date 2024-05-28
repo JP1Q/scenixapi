@@ -17,8 +17,8 @@ To run the Sensory API using Docker, follow these steps:
 
 1. **Clone the repository:**
     ```sh
-    git clone <repository_url>
-    cd <repository_directory>
+    git clone https://github.com/JP1Q/scenixapi
+    cd scenixapi
     ```
 
 2. **Set up environment variables:**
