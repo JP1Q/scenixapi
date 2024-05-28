@@ -1,84 +1,131 @@
-# Scenix API
+## Sensory API
 
-Scenix api je flask-based api
+## Introduction
+The Sensory API provides access to sensory data and statistics. This API is built using Flask and uses a MySQL database for data storage.
 
-## Endpointy
+## Table of Contents
+- [Installation](#installation)
+- [Usage](#usage)
+- [Endpoints](#endpoints)
+- [Example Requests](#example-requests)
+- [Dependencies](#dependencies)
+- [Contributors](#contributors)
+- [License](#license)
 
+## Installation
+To run the Sensory API using Docker, follow these steps:
 
-### Získání všech senzorů v DB
+1. **Clone the repository:**
+    ```sh
+    git clone <repository_url>
+    cd <repository_directory>
+    ```
 
-- **Endpoint:** `/senzory`
-- **Method:** `GET`
-- **Description:** Vrátí list všech senzorů v DB s detaily.
+2. **Set up environment variables:**
+    Create a `.env` file in the root directory and add the following:
+    ```sh
+    DB_HOST=your_db_host
+    DB_USER=your_db_user
+    DB_PASSWORD=your_db_password
+    DB_NAME=your_db_name
+    ```
 
-### Příklad vrácených dat:
+3. **Build the Docker image:**
+    ```sh
+    docker build -t sensory-api .
+    ```
 
-```sql
+4. **Run the Docker container:**
+    ```sh
+    docker run -d -p 5000:5000 --env-file .env sensory-api
+    ```
+
+## Usage
+To use the Sensory API, you need to send HTTP requests to the specified endpoints. Replace `http://localhost:5000` with the actual URL of your API if it's hosted elsewhere.
+
+## Endpoints
+
+### `/senzory`
+- **Method:** GET
+- **Description:** Retrieves a list of all sensors in the system.
+- **Response:** A JSON array of objects, each representing a sensor. Each object contains the following properties:
+    - `id`: The unique identifier of the sensor.
+    - `nazev`: The name of the sensor.
+    - `typ`: The type of the sensor.
+    - `misto`: The location of the sensor.
+    - `frekvence`: The frequency of the sensor.
+    - `stav`: The status of the sensor.
+    - `count_records`: The number of records for the sensor.
+
+### `/pocetzaminutu`
+- **Method:** GET
+- **Description:** Retrieves the number of records in the last minute.
+- **Response:** A JSON object with a single property:
+    - `count`: The number of records in the last minute.
+
+### `/pocetsenzoru`
+- **Method:** GET
+- **Description:** Retrieves the total number of sensors in the system.
+- **Response:** A JSON object with a single property:
+    - `count`: The total number of sensors.
+
+## Example Requests
+
+### `/senzory`
+**GET** `/senzory`
+
+**Response:**
+```json
 [
     {
         "id": 1,
         "nazev": "Sensor 1",
         "typ": "Temperature",
-        "misto": "Room 1",
-        "frekvence": 60.0,
-        "stav": "#FFFFFF"
+        "misto": "Office",
+        "frekvence": "1 minute",
+        "stav": "Online",
+        "count_records": 100
     },
     {
         "id": 2,
         "nazev": "Sensor 2",
         "typ": "Humidity",
-        "misto": "Room 2",
-        "frekvence": 30.0,
-        "stav": "#FFFFFF"
+        "misto": "Living Room",
+        "frekvence": "5 minutes",
+        "stav": "Offline",
+        "count_records": 50
     }
 ]
 ```
 
-### 2. Počet zápisů v poslední minutě
+### `/pocetzaminutu`
+**GET** `/pocetzaminutu`
 
-- **Endpoint**: ``/pocetzaminutu``
-- **Method**: ``GET``
-- **Description**: ``Vrátí počet zápisů v poslední minutě``
-
-### Příklad
-
-```sql
+**Response:**
+```json
 {
-    "count": 5
+    "count": 50
 }
 ```
 
-### Počet senzorů
+### `/pocetsenzoru`
+**GET** `/pocetsenzoru`
 
-- **Endpoint**: ``/pocetsenzoru``
-- **Method**: ``GET``
-- **Description**: ``Vrátí počet všech senzorů v DB``
-
-### Příklad
-
-```sql
+**Response:**
+```json
 {
     "count": 10
 }
 ```
 
+## Dependencies
+- Flask
+- Flask-CORS
+- mysql-connector-python
+- Docker
 
-### Počet zápisů pro určitý senzor
+## Contributors
+- [Your Name](https://github.com/your-github-profile)
 
-- **Endpoint**: ```/pocet_records```
-- Method: `GET`
-- Description: `Returns the count of records for a specific sensor.`
-- Query Parameter: `id_sensoru`
-
-#### Příklad req.
-```sh
-curl "http://127.0.0.1:5000/pocet_records?id_sensoru=2"
-```
-
-### Příklad outputu
-
-```sql
-{
-    "count": 50
-}
-```
+## License
+This project is licensed under the MIT License.
