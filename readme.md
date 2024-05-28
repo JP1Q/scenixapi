@@ -125,7 +125,7 @@ To use the Sensory API, you need to send HTTP requests to the specified endpoint
 - Docker
 
 ## Contributors
-- [Your Name](https://github.com/your-github-profile)
+- [Aroteo](https://github.com/JP1Q)
 
 ## License
 This project is licensed under the MIT License.
