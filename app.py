@@ -1,26 +1,48 @@
-from flask import Flask, jsonify, request
-from flask_cors import CORS
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import List
 import mysql.connector
 import os
 import datetime
 
-app = Flask(__name__)
-CORS(app)  # Enable CORS for all origins
+app = FastAPI()
 
+# Přidání middleware pro povolení CORS (Cross-Origin Resource Sharing)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Povolit všechny zdroje
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Funkce pro získání připojení k databázi
 def get_db_connection():
-    conn = mysql.connector.connect(
-        host=os.getenv('DB_HOST', 'host.docker.internal'),
-        user=os.getenv('DB_USER', 'root'),
-        password=os.getenv('DB_PASSWORD', ''),
-        database=os.getenv('DB_NAME', 'sensory_debug')
+    return mysql.connector.connect(
+        host=os.getenv('DB_HOST', 'db'),  # Adresa hostitele databáze
+        user=os.getenv('DB_USER', 'root'),  # Uživatelské jméno pro připojení k databázi
+        password=os.getenv('DB_PASSWORD', ''),  # Heslo pro připojení k databázi
+        database=os.getenv('DB_NAME', 'sensory_debug')  # Název databáze
     )
-    return conn
 
-@app.route('/senzory', methods=['GET'])
+# Model senzoru pro validaci a serializaci dat
+class Sensor(BaseModel):
+    id: int
+    nazev: str
+    typ: str
+    misto: str
+    frekvence: str
+    stav: str
+    count_records: int
+
+# Endpoint pro získání seznamu senzorů
+@app.get("/senzory")
 def get_senzory():
-    conn = get_db_connection()
+    conn = get_db_connection()  # Získání připojení k databázi
     cursor = conn.cursor(dictionary=True)
     
+    # Dotaz na získání seznamu senzorů s počtem záznamů
     query = """
     SELECT s.id_sen, s.nazev, s.typ, s.misto, s.frekvence, st.barva as stav, 
            (SELECT COUNT(*) FROM zaznamy z WHERE z.id_sen = s.id_sen) as count_records
@@ -31,9 +53,8 @@ def get_senzory():
     cursor.execute(query)
     rows = cursor.fetchall()
     
-    sensors = []
-    for row in rows:
-        sensors.append({
+    sensors = [
+        {
             "id": row["id_sen"],
             "nazev": row["nazev"],
             "typ": row["typ"],
@@ -41,41 +62,46 @@ def get_senzory():
             "frekvence": row.get("frekvence"),
             "stav": row["stav"],
             "count_records": row["count_records"]
-        })
+        }
+        for row in rows
+    ]
     
     cursor.close()
     conn.close()
     
-    return jsonify(sensors)
+    return sensors
 
-
-@app.route('/pocetzaminutu', methods=['GET'])
+# Endpoint pro získání počtu záznamů za poslední minutu
+@app.get("/pocetzaminutu")
 def get_zaminutu():
-    conn = get_db_connection()
+    conn = get_db_connection()  # Získání připojení k databázi
     cursor = conn.cursor(dictionary=True)
     
-    current_time = datetime.datetime.now()
-    one_minute_ago = current_time - datetime.timedelta(minutes=1)
+    current_time = datetime.datetime.now()  # Aktuální čas
+    one_minute_ago = current_time - datetime.timedelta(minutes=1)  # Čas před jednou minutou
     
+    # Dotaz na počet záznamů mezi current_time a one_minute_ago
     query = """
     SELECT COUNT(*) as count
     FROM zaznamy
-    WHERE cas >= %s AND cas <= %s
+    WHERE cas BETWEEN %s AND %s
     """
     
-    cursor.execute(query, (one_minute_ago, current_time))
+    cursor.execute(query, (one_minute_ago.strftime('%Y-%m-%d %H:%M:%S'), current_time.strftime('%Y-%m-%d %H:%M:%S')))
     result = cursor.fetchone()
     
     cursor.close()
     conn.close()
     
-    return jsonify(result)
+    return result
 
-@app.route('/pocetsenzoru', methods=['GET'])
+# Endpoint pro získání počtu senzorů
+@app.get("/pocetsenzoru")
 def get_sensors():
-    conn = get_db_connection()
+    conn = get_db_connection()  # Získání připojení k databázi
     cursor = conn.cursor(dictionary=True)
     
+    # Dotaz na počet senzorů
     query = "SELECT COUNT(*) as count FROM senzory"
     
     cursor.execute(query)
@@ -84,8 +110,8 @@ def get_sensors():
     cursor.close()
     conn.close()
     
-    return jsonify(result)
-
+    return result
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    import uvicorn
+    uvicorn.run(app, host='0.0.0.0', port=5000)  # Spuštění aplikace na portu 5000
