@@ -20,21 +20,19 @@ app.add_middleware(
 # Funkce pro získání připojení k databázi
 def get_db_connection():
     return mysql.connector.connect(
-        host=os.getenv('DB_HOST', 'db'),  # Adresa hostitele databáze
+        host=os.getenv('DB_HOST','db'),  # Adresa hostitele databáze
         user=os.getenv('DB_USER', 'root'),  # Uživatelské jméno pro připojení k databázi
-        password=os.getenv('DB_PASSWORD', ''),  # Heslo pro připojení k databázi
-        database=os.getenv('DB_NAME', 'sensory_debug')  # Název databáze
+        database=os.getenv('DB_NAME', 'dcuk_mqtt')  # Název databáze
     )
-
 # Model senzoru pro validaci a serializaci dat
-class Sensor(BaseModel):
-    id: int
-    nazev: str
-    typ: str
-    misto: str
-    frekvence: str
-    stav: str
-    count_records: int
+# class Sensor(BaseModel):
+#     id: int
+#     nazev: str
+#     typ: str
+#     misto: str
+#     frekvence: str
+#     stav: str
+#     count_records: int
 
 # Endpoint pro získání seznamu senzorů
 @app.get("/senzory")
@@ -48,6 +46,7 @@ def get_senzory():
            (SELECT COUNT(*) FROM zaznamy z WHERE z.id_sen = s.id_sen) as count_records
     FROM senzory s
     JOIN stav st ON s.id_stav = st.id_stav
+    GROUP BY s.nazev
     """
     
     cursor.execute(query)
@@ -77,9 +76,12 @@ def get_zaminutu():
     conn = get_db_connection()  # Získání připojení k databázi
     cursor = conn.cursor(dictionary=True)
     
-    current_time = datetime.datetime.now()  # Aktuální čas
+    timezone = datetime.timezone(datetime.timedelta(hours=2)) # Časové pásmo pro cesko
+    current_time = datetime.datetime.now(timezone)  # Aktuální čas
+    print(f"current time  {current_time}")
     one_minute_ago = current_time - datetime.timedelta(minutes=1)  # Čas před jednou minutou
-    
+    print(current_time.strftime('%Y-%m-%d %H:%M:%S'))
+    print(one_minute_ago.strftime('%Y-%m-%d %H:%M:%S'))
     # Dotaz na počet záznamů mezi current_time a one_minute_ago
     query = """
     SELECT COUNT(*) as count
@@ -88,6 +90,7 @@ def get_zaminutu():
     """
     
     cursor.execute(query, (one_minute_ago.strftime('%Y-%m-%d %H:%M:%S'), current_time.strftime('%Y-%m-%d %H:%M:%S')))
+    
     result = cursor.fetchone()
     
     cursor.close()
@@ -114,4 +117,4 @@ def get_sensors():
 
 if __name__ == '__main__':
     import uvicorn
-    uvicorn.run(app, host='0.0.0.0', port=5000)  # Spuštění aplikace na portu 5000
+    uvicorn.run(app, host='127.0.0.1', port=5000)  # Spuštění aplikace na portu 5000

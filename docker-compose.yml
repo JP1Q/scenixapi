@@ -8,5 +8,4 @@ services:
     environment:
       DB_HOST: host.docker.internal  # Special DNS name to access host machine
       DB_USER: root
-      DB_PASSWORD: ''
-      DB_NAME: sensory_debug
+      DB_NAME: dcuk_mqtt
