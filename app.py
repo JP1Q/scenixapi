@@ -11,41 +11,39 @@ import pandas as pd
 
 app = FastAPI()
 
-# Add CORS middleware to allow cross-origin requests
+# Přidání middleware pro povolení CORS (Cross-Origin Resource Sharing)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins
+    allow_origins=["*"],  # Povolit všechny zdroje
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Function to establish database connection
+# Funkce pro získání připojení k databázi
 def get_db_connection():
     return mysql.connector.connect(
-        host=os.getenv('DB_HOST', 'db'),  # Adresa hostitele databáze
+        host=os.getenv('DB_HOST','db'),  # Adresa hostitele databáze
         user=os.getenv('DB_USER', 'root'),  # Uživatelské jméno pro připojení k databázi
-        password=os.getenv('DB_PASSWORD', ''),  # Heslo pro připojení k databázi
-        database=os.getenv('DB_NAME', 'sensory_debug')  # Název databáze
+        database=os.getenv('DB_NAME', 'dcuk_mqtt')  # Název databáze
     )
-
 # Model senzoru pro validaci a serializaci dat
-class Sensor(BaseModel):
-    id: int
-    nazev: str
-    typ: str
-    misto: str
-    frekvence: str
-    stav: str
-    count_records: int
+# class Sensor(BaseModel):
+#     id: int
+#     nazev: str
+#     typ: str
+#     misto: str
+#     frekvence: str
+#     stav: str
+#     count_records: int
 
-# Endpoint to retrieve list of sensors
+# Endpoint pro získání seznamu senzorů
 @app.get("/senzory")
 def get_senzory():
-    conn = get_db_connection()  # Get database connection
+    conn = get_db_connection()  # Získání připojení k databázi
     cursor = conn.cursor(dictionary=True)
     
-    # Query to get list of sensors with record count
+    # Dotaz na získání seznamu senzorů s počtem záznamů
     query = """
     SELECT s.id_sen, s.nazev, s.typ, s.misto, s.frekvence, st.barva as stav, 
            (SELECT COUNT(*) FROM zaznamy z WHERE z.id_sen = s.id_sen) as count_records
@@ -75,15 +73,18 @@ def get_senzory():
     
     return sensors
 
-# Endpoint to retrieve record count for the last minute
+# Endpoint pro získání počtu záznamů za poslední minutu
 @app.get("/pocetzaminutu")
 def get_zaminutu():
-    conn = get_db_connection()  # Get database connection
+    conn = get_db_connection()  # Získání připojení k databázi
     cursor = conn.cursor(dictionary=True)
     
-    current_time = datetime.datetime.now()  # Aktuální čas
+    timezone = datetime.timezone(datetime.timedelta(hours=2)) # Časové pásmo pro cesko
+    current_time = datetime.datetime.now(timezone)  # Aktuální čas
+    print(f"current time  {current_time}")
     one_minute_ago = current_time - datetime.timedelta(minutes=1)  # Čas před jednou minutou
-    
+    print(current_time.strftime('%Y-%m-%d %H:%M:%S'))
+    print(one_minute_ago.strftime('%Y-%m-%d %H:%M:%S'))
     # Dotaz na počet záznamů mezi current_time a one_minute_ago
     query = """
     SELECT COUNT(*) as count
@@ -100,13 +101,13 @@ def get_zaminutu():
     
     return result
 
-# Endpoint to retrieve sensor count
+# Endpoint pro získání počtu senzorů
 @app.get("/pocetsenzoru")
 def get_sensors():
-    conn = get_db_connection()  # Get database connection
+    conn = get_db_connection()  # Získání připojení k databázi
     cursor = conn.cursor(dictionary=True)
     
-    # Query to count sensors
+    # Dotaz na počet senzorů
     query = "SELECT COUNT(*) as count FROM senzory"
     
     cursor.execute(query)
@@ -117,6 +118,65 @@ def get_sensors():
     
     return result
 
+# Endpoint pro graf ze zaznamu RAW DATA (CAS -> Pocet poslanych zaznamu)
+@app.get("/grafzaznamu/raw")
+def graf_zaznamu():
+    conn = get_db_connection()  # Získání připojení k databázi
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        query = "SELECT z.cas FROM zaznamy as z"
+        cursor.execute(query)
+        
+        # Fetch all results to ensure no unread results remain
+        result = cursor.fetchall()
+
+    except Exception as e:
+        print(f"Error: {e}")
+        result = None
+
+    finally:
+        cursor.close()
+        conn.close()
+
+    return result
+
+
+# Endpoint pro graf ze zaznamu (CAS -> Pocet poslanych zaznamu)
+@app.get("/grafzaznamu/graf", response_class=HTMLResponse)
+def graf_zaznamu_graf():
+    conn = get_db_connection()  # Get database connection
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        query = "SELECT z.cas FROM zaznamy as z"
+        cursor.execute(query)
+        results = cursor.fetchall()
+
+        # Convert the results to a DataFrame
+        df = pd.DataFrame(results)
+        df['cas'] = pd.to_datetime(df['cas'])
+
+        # Group by hour and count records
+        df['hour'] = df['cas'].dt.floor('H')
+        hourly_counts = df.groupby('hour').size().reset_index(name='counts')
+
+        # Create a Plotly graph
+        fig = px.line(hourly_counts, x='hour', y='counts', title='Number of Records per Hour')
+
+        # Generate HTML for the graph
+        graph_html = fig.to_html(full_html=False)
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return f"<h1>Error: {e}</h1>"
+
+    finally:
+        cursor.close()
+        conn.close()
+
+    return HTMLResponse(content=graph_html)
+
 if __name__ == '__main__':
     import uvicorn
-    uvicorn.run(app, host='0.0.0.0', port=5000)  # Spuštění aplikace na portu 5000
+    uvicorn.run(app, host='127.0.0.1', port=5000)  # Spuštění aplikace na portu 5000
